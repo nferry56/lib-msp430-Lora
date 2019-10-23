@@ -7,7 +7,7 @@ Current feature supported:
 - MSP430 SPI + DIO_IRQ_MAPPING
 - LoRa SX127x Low-Level API (All Modes with CAD and IRQ Handling)
 - LoRaWan 1.0 - ABP mode - and just sending data to gateway
-- single & multi-channels
+- single & multi-channels frequency hopping
 
 Not yet implemented :
 - LoRaWan 1.1 - Class A, B, C

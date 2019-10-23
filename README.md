@@ -13,6 +13,6 @@ Not yet implemented :
 - LoRaWan 1.1 - Class A, B, C
 - Rx Windows 1 & 2
 - Network Control Fields
-- OTAA
+- OTAA activation
 - Adaptative Datarate
 - Hardware MSP430 CRC and AES

@@ -1,5 +1,5 @@
 # lib-msp430-Lora
-MSP430 librairy for Lora Low-Level RF and LoraWan 1.0 protocol.
+MSP430 librairy for Lora Low-Level RF and LoRaWan 1.0 protocol.
 
 This librairy is under-development.
 

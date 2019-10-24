@@ -18,7 +18,7 @@ typedef enum lrw_regions
   _US902,
   _AU915,
   _AS920,
-  _LAST_REGION
+  _LAST_REGION,
 } lrw_region_t;
 
 typedef enum lrw_class

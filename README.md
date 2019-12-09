@@ -1,7 +1,8 @@
 # lib-msp430-Lora
 MSP430 librairy for Lora Low-Level RF and LoRaWan 1.0 protocol.
 
-This librairy is under-development.
+This library is under-development, but fonctional.
+Not All Tests done yet.
 
 Current feature supported:
 - MSP430 SPI + DIO_IRQ_MAPPING

@@ -51,6 +51,7 @@ void main(void)
 
     // Start LoRa Radio
     LoraRadio.begin( _EU863, CH0, SF12BW125, 15, false);
+    LoraRadio.sendData( 80, "0123456789", 11 );
     //LoraRadio.lora.CAD();
 
     //Main loop--------------------------------------

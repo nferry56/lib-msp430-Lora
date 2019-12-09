@@ -1,3 +1,6 @@
+#include <msp430.h>
+#include "dsplib\include\DSPLib.h"
+
 #include "LoRa.h"
 #include "LoRaWan.h"
 #include <intrinsics.h>
@@ -335,6 +338,9 @@ void LoRaWan::sendData(uint8_t Frame_Port, const uint8_t *Data, const uint8_t Da
 /**************************************************************************/
 void LoRaWan::Encrypt_Payload(unsigned char *Data, unsigned char Data_Length, unsigned int Frame_Counter, unsigned char Direction)
 {
+  /* Benchmark cycle counts */
+  volatile uint32_t cycleCount;
+
   unsigned char i = 0x00;
   unsigned char j;
   unsigned char Number_of_Blocks = 0x00;
@@ -345,10 +351,8 @@ void LoRaWan::Encrypt_Payload(unsigned char *Data, unsigned char Data_Length, un
   //Calculate number of blocks
   Number_of_Blocks = Data_Length / 16;
   Incomplete_Block_Size = Data_Length % 16;
-  if(Incomplete_Block_Size != 0)
-  {
-    Number_of_Blocks++;
-  }
+  if( Incomplete_Block_Size != 0 )
+      Number_of_Blocks++;
 
   for(i = 1; i <= Number_of_Blocks; i++)
   {
@@ -357,27 +361,24 @@ void LoRaWan::Encrypt_Payload(unsigned char *Data, unsigned char Data_Length, un
     Block_A[2] = 0x00;
     Block_A[3] = 0x00;
     Block_A[4] = 0x00;
-
     Block_A[5] = Direction;
-
     Block_A[6] = DevAddr[3];
     Block_A[7] = DevAddr[2];
     Block_A[8] = DevAddr[1];
     Block_A[9] = DevAddr[0];
-
     Block_A[10] = (Frame_Counter & 0x00FF);
     Block_A[11] = ((Frame_Counter >> 8) & 0x00FF);
-
     Block_A[12] = 0x00; //Frame counter upper Bytes
     Block_A[13] = 0x00;
-
     Block_A[14] = 0x00;
-
     Block_A[15] = i;
 
     //Calculate S
-    AES_Encrypt( Block_A, AppSkey ); //original
-
+    cycleCount = 0;
+    msp_benchmarkStart(MSP_BENCHMARK_BASE, 1);
+    AES_HW_Encrypt( Block_A, AppSkey ); //original
+    cycleCount = msp_benchmarkStop(MSP_BENCHMARK_BASE);
+    cycleCount += 1-1;
 
     //Check for last block
     if(i != Number_of_Blocks)
@@ -391,9 +392,8 @@ void LoRaWan::Encrypt_Payload(unsigned char *Data, unsigned char Data_Length, un
     else
     {
       if(Incomplete_Block_Size == 0)
-      {
         Incomplete_Block_Size = 16;
-      }
+
       for(j = 0; j < Incomplete_Block_Size; j++)
       {
         *Data = *Data ^ Block_A[j];
@@ -448,72 +448,61 @@ void LoRaWan::Calculate_MIC(unsigned char *Data, unsigned char *Final_MIC, unsig
   unsigned char Incomplete_Block_Size = 0x00;
   unsigned char Block_Counter = 0x01;
 
-  //Create Block_B
+  // Create Block_B
   Block_B[0] = 0x49;
   Block_B[1] = 0x00;
   Block_B[2] = 0x00;
   Block_B[3] = 0x00;
   Block_B[4] = 0x00;
-
   Block_B[5] = Direction;
-
   Block_B[6] = DevAddr[3];
   Block_B[7] = DevAddr[2];
   Block_B[8] = DevAddr[1];
   Block_B[9] = DevAddr[0];
-
   Block_B[10] = (Frame_Counter & 0x00FF);
   Block_B[11] = ((Frame_Counter >> 8) & 0x00FF);
-
   Block_B[12] = 0x00; //Frame counter upper bytes
   Block_B[13] = 0x00;
-
   Block_B[14] = 0x00;
   Block_B[15] = Data_Length;
 
   //Calculate number of Blocks and blocksize of last block
   Number_of_Blocks = Data_Length / 16;
   Incomplete_Block_Size = Data_Length % 16;
+  if( Incomplete_Block_Size != 0 )
+      Number_of_Blocks++;
 
-  if(Incomplete_Block_Size != 0)
-  {
-    Number_of_Blocks++;
-  }
-
+  // Generate Keys K1 and K2
   Generate_Keys(Key_K1, Key_K2);
 
-  //Preform Calculation on Block B0
+  // Perform Calculation on Block B0
 
-  //Preform AES encryption
-  AES_Encrypt( Block_B, NwkSkey );
+  // Perform AES encryption
+  AES_HW_Encrypt( Block_B, NwkSkey );
 
-  //Copy Block_B to Old_Data
+  // Copy Block_B to Old_Data
   for(i = 0; i < 16; i++)
-  {
-    Old_Data[i] = Block_B[i];
-  }
+      Old_Data[i] = Block_B[i];
 
-  //Preform full calculating until n-1 messsage blocks
+  // Perform full calculating until n-1 messsage blocks
   while(Block_Counter < Number_of_Blocks)
   {
-    //Copy data into array
+    // Copy data into array
     for(i = 0; i < 16; i++)
     {
       New_Data[i] = *Data;
       Data++;
     }
 
-    //Preform XOR with old data
-    XOR(New_Data,Old_Data);
+    // Perform XOR with old data
+    XOR(New_Data, Old_Data);
 
-    //Preform AES encryption
-    AES_Encrypt(New_Data,NwkSkey);
+    // Perform AES encryption
+    AES_HW_Encrypt(New_Data, NwkSkey);
 
-    //Copy New_Data to Old_Data
+    // Copy New_Data to Old_Data
     for(i = 0; i < 16; i++)
-    {
-      Old_Data[i] = New_Data[i];
-    }
+        Old_Data[i] = New_Data[i];
 
     //Raise Block counter
     Block_Counter++;
@@ -530,15 +519,15 @@ void LoRaWan::Calculate_MIC(unsigned char *Data, unsigned char *Final_MIC, unsig
       Data++;
     }
 
-    //Preform XOR with Key 1
-    XOR(New_Data,Key_K1);
+    // Perform XOR with Key 1
+    XOR(New_Data, Key_K1);
 
-    //Preform XOR with old data
-    XOR(New_Data,Old_Data);
+    // Perform XOR with old data
+    XOR(New_Data, Old_Data);
 
-    //Preform last AES routine
+    // Perform last AES routine
     // read NwkSkey from PROGMEM
-    AES_Encrypt(New_Data,NwkSkey);
+    AES_HW_Encrypt(New_Data, NwkSkey);
   }
   else
   {
@@ -560,14 +549,14 @@ void LoRaWan::Calculate_MIC(unsigned char *Data, unsigned char *Final_MIC, unsig
       }
     }
 
-    //Preform XOR with Key 2
-    XOR(New_Data,Key_K2);
+    // Perform XOR with Key 2
+    XOR(New_Data, Key_K2);
 
-    //Preform XOR with Old data
-    XOR(New_Data,Old_Data);
+    // Perform XOR with Old data
+    XOR(New_Data, Old_Data);
 
-    //Preform last AES routine
-    AES_Encrypt(New_Data,NwkSkey);
+    // Perform last AES routine
+    AES_HW_Encrypt(New_Data, NwkSkey);
   }
 
   Final_MIC[0] = New_Data[0];
@@ -597,53 +586,41 @@ void LoRaWan::Generate_Keys(unsigned char *K1, unsigned char *K2)
   unsigned char i;
   unsigned char MSB_Key;
 
-  //Encrypt the zeros in K1 with the NwkSkey
-  AES_Encrypt(K1,NwkSkey);
+  // Encrypt the zeros in K1 with the NwkSkey
+  AES_HW_Encrypt(K1, NwkSkey);
 
-  //Create K1
-  //Check if MSB is 1
+  // Create K1
+  // Check if MSB is 1
   if((K1[0] & 0x80) == 0x80)
-  {
-    MSB_Key = 1;
-  }
+      MSB_Key = 1;
   else
-  {
-    MSB_Key = 0;
-  }
+      MSB_Key = 0;
 
   //Shift K1 one bit left
   Shift_Left(K1);
 
-  //if MSB was 1
-  if(MSB_Key == 1)
-  {
-    K1[15] = K1[15] ^ 0x87;
-  }
+  // if MSB was 1
+  if( MSB_Key == 1 )
+      K1[15] = K1[15] ^ 0x87;
 
-  //Copy K1 to K2
+
+  // Copy K1 to K2
   for( i = 0; i < 16; i++)
-  {
-    K2[i] = K1[i];
-  }
+      K2[i] = K1[i];
 
   //Check if MSB is 1
   if((K2[0] & 0x80) == 0x80)
-  {
-    MSB_Key = 1;
-  }
+      MSB_Key = 1;
   else
-  {
-    MSB_Key = 0;
-  }
+      MSB_Key = 0;
 
   //Shift K2 one bit left
   Shift_Left(K2);
 
   //Check if MSB was 1
-  if(MSB_Key == 1)
-  {
-    K2[15] = K2[15] ^ 0x87;
-  }
+  if( MSB_Key == 1 )
+      K2[15] = K2[15] ^ 0x87;
+
 }
 void LoRaWan::Shift_Left(unsigned char *Data)
 {
@@ -653,7 +630,7 @@ void LoRaWan::Shift_Left(unsigned char *Data)
 
   for(i = 0; i < 16; i++)
   {
-    //Check for overflow on next byte except for the last byte
+    // Check for overflow on next byte except for the last byte
     if(i < 15)
     {
       //Check if upper bit is one
@@ -665,7 +642,7 @@ void LoRaWan::Shift_Left(unsigned char *Data)
     else
       Overflow = 0;
 
-    //Shift one left
+    // Shift one left
     Data[i] = (Data[i] << 1) + Overflow;
   }
 }
@@ -691,6 +668,38 @@ void LoRaWan::XOR(unsigned char *New_Data,unsigned char *Old_Data)
 
 /**************************************************************************/
 /*!
+    @brief    Function used to perform AES encryption with HW AES Engine
+              with in-place Memory Block results
+    @param    *Data
+              Pointer to the data to decrypt or encrypt.
+    @param    *Key
+              Pointer to AES encryption key.
+*/
+/**************************************************************************/
+void LoRaWan::AES_HW_Encrypt(unsigned char *Data, unsigned char *Key)
+{
+    uint16_t k;
+
+    // Init EAS Module
+    AESACTL0 |= AESSWRST;
+    AESACTL0 = AESKL__128|AESOP_0;  // Encrypt AES-128 bits
+
+    // Copy Key to AES Module
+    for( k = 0; k < 8; k++ )
+        AESAKEY = ((uint16_t *)Key)[k];
+    // Copy Input Data to State
+    for( k = 0; k < 8; k++ )
+        AESADIN = ((uint16_t *)Data)[k];
+    // Wait AES Busy Finished
+    while( AESASTAT & AESBUSY != 0 )
+        /*Do nothing*/ ;
+    // Save State to Output Data
+    for( k = 0; k < 8; k++ )
+        ((uint16_t *)Data)[k] = AESADOUT;
+}
+
+/**************************************************************************/
+/*!
     @brief    Function used to perform AES encryption.
     @param    *Data
               Pointer to the data to decrypt or encrypt.
@@ -704,7 +713,7 @@ void LoRaWan::AES_Encrypt(unsigned char *Data, unsigned char *Key)
   unsigned char Round_Key[16];
   unsigned char State[4][4];
 
-  //  Copy input to State arry
+  //  Copy input to State array
   for( Column = 0; Column < 4; Column++ )
   {
     for( Row = 0; Row < 4; Row++ )

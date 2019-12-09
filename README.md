@@ -8,6 +8,7 @@ Current feature supported:
 - LoRa SX127x Low-Level API (All Modes with CAD and IRQ Handling)
 - LoRaWan 1.0 - ABP mode - and just sending data to gateway
 - single & multi-channels frequency hopping
+- Hardware MSP430 AES-128
 
 Not yet implemented :
 - LoRaWan 1.1 - Class A, B, C
@@ -15,4 +16,3 @@ Not yet implemented :
 - Network Control Fields
 - OTAA activation
 - Adaptative Datarate
-- Hardware MSP430 CRC and AES
